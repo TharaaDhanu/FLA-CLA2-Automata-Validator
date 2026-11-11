@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLA Automata Validator | CLA-2</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">FLA</div>
+    <div>
+      <h1>Formal Language & Automata</h1>
+      <p>CLA-2 • Real-Time Validation & PDA Case Studies</p>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <button class="nav active" data-section="task2">Task 2 · Finite Automata</button>
+    <button class="nav" data-section="task3">Task 3 · PDA / CFG</button>
+    <div class="side-note">
+      <b>Project demo</b>
+      <p>Enter a string, validate it, and view the automaton model, execution trace, state/stack behaviour, diagram, and explanation.</p>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ================= TASK 2 ================= -->
+    <section id="task2" class="section active">
+      <div class="hero">
+        <span class="pill">TASK 2</span>
+        <h2>Finite Automata for Real-Time Validation</h2>
+        <p>Choose an application and test a string against its DFA rule.</p>
+      </div>
+
+      <div class="cards">
+        <div class="card validator" data-task="atm">
+          <h3>ATM PIN</h3>
+          <p>Exactly 4 decimal digits.</p>
+          <input placeholder="e.g. 4821" autocomplete="off">
+          <button class="validate">Validate PIN</button>
+        </div>
+
+        <div class="card validator" data-task="password">
+          <h3>Password</h3>
+          <p>8 chars, uppercase first, digit last.</p>
+          <input placeholder="e.g. Abc123x7" autocomplete="off">
+          <button class="validate">Validate Password</button>
+        </div>
+
+        <div class="card validator" data-task="email">
+          <h3>E-mail</h3>
+          <p>Simplified local@domain.tld rule.</p>
+          <input placeholder="e.g. student@srm.edu" autocomplete="off">
+          <button class="validate">Validate E-mail</button>
+        </div>
+      </div>
+
+      <div class="result-panel" id="result-task2">
+        <div class="empty-result">
+          <span class="empty-icon">DFA</span>
+          <h3>Task 2 Result Area</h3>
+          <p>Run one of the DFA validators above to display its result here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TASK 3 ================= -->
+    <section id="task3" class="section">
+      <div class="hero">
+        <span class="pill">TASK 3</span>
+        <h2>Pushdown Automata & Context-Free Grammar</h2>
+        <p>Test nesting, expression syntax, and palindrome languages.</p>
+      </div>
+
+      <div class="cards task3-grid">
+        <div class="card validator" data-task="brackets">
+          <h3>Balanced Brackets</h3>
+          <p>DPDA-style stack matching for (), [], {}.</p>
+          <input placeholder="e.g. {[()()]}" autocomplete="off">
+          <button class="validate">Run PDA</button>
+        </div>
+
+        <div class="card validator" data-task="expression">
+          <h3>Arithmetic Expression</h3>
+          <p>Grammar: E→E+T, T→T*F, F→(E)|id.</p>
+          <input placeholder="e.g. id+id*id" autocomplete="off">
+          <button class="validate">Parse Expression</button>
+        </div>
+
+        <div class="card validator" data-task="wcwr">
+          <h3>wc wᴿ</h3>
+          <p>Marked-center palindrome; deterministic PDA idea.</p>
+          <input placeholder="e.g. abcba" autocomplete="off">
+          <button class="validate">Run DPDA</button>
+        </div>
+
+        <div class="card validator" data-task="wwr">
+          <h3>w wᴿ</h3>
+          <p>Unmarked midpoint; nondeterministic PDA idea.</p>
+          <input placeholder="e.g. abba" autocomplete="off">
+          <button class="validate">Run NPDA</button>
+        </div>
+      </div>
+
+      <div class="result-panel" id="result-task3">
+        <div class="empty-result">
+          <span class="empty-icon">PDA</span>
+          <h3>Task 3 Result Area</h3>
+          <p>Run one of the PDA/CFG validators above to display its result here.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const navs = document.querySelectorAll(".nav");
+const sections = document.querySelectorAll(".section");
+
+navs.forEach(btn => btn.addEventListener("click", () => {
+  navs.forEach(x => x.classList.remove("active"));
+  sections.forEach(x => x.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById(btn.dataset.section).classList.add("active");
+  window.scrollTo({top:0, behavior:"smooth"});
+}));
+
+document.querySelectorAll(".validate").forEach(btn => {
+  btn.addEventListener("click", runValidator);
+
+  btn.closest(".validator").querySelector("input").addEventListener("keydown", e => {
+    if (e.key === "Enter") runValidator.call(btn);
+  });
+});
+
+async function runValidator() {
+  const btn = this;
+  const card = btn.closest(".validator");
+  const task = card.dataset.task;
+  const value = card.querySelector("input").value;
+
+  btn.disabled = true;
+  btn.textContent = "Processing...";
+
+  try {
+    const res = await fetch("/validate", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({task, value})
+    });
+
+    const data = await res.json();
+    renderResult(data);
+  } catch (error) {
+    renderError(task, "Could not connect to the Flask server. Make sure python app.py is running.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = taskButtonText(task);
+  }
+}
+
+function taskButtonText(task) {
+  return {
+    atm: "Validate PIN",
+    password: "Validate Password",
+    email: "Validate E-mail",
+    brackets: "Run PDA",
+    expression: "Parse Expression",
+    wcwr: "Run DPDA",
+    wwr: "Run NPDA"
+  }[task];
+}
+
+function renderResult(d) {
+  const panel = document.getElementById("result-" + d.task);
+  panel.innerHTML = "";
+
+  const result = document.createElement("div");
+  result.className = "result-content";
+
+  result.innerHTML = `
+    <div class="result-head">
+      <div>
+        <span class="pill model-pill">${escapeHtml(d.model)}</span>
+        <h2>${d.ok ? "Input Accepted" : "Input Rejected"}</h2>
+      </div>
+      <div class="badge ${d.ok ? "good" : "bad"}">
+        ${d.ok ? "ACCEPTED ✓" : "REJECTED ✕"}
+      </div>
+    </div>
+
+    <div class="message ${d.ok ? "success-message" : "error-message"}">
+      ${escapeHtml(d.message)}
+    </div>
+
+    <div class="result-grid">
+      <div class="result-box">
+        <div class="box-title">Input</div>
+        <div class="box-value">${escapeHtml(d.value || "ε")}</div>
+      </div>
+      <div class="result-box">
+        <div class="box-title">Formal Model</div>
+        <div class="box-value">${escapeHtml(d.model)}</div>
+      </div>
+      <div class="result-box">
+        <div class="box-title">Result</div>
+        <div class="box-value">${d.ok ? "Language accepted" : "Language rejected"}</div>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">
+        <span>01</span>
+        <div>
+          <h3>Execution Trace</h3>
+          <p>How the input moves through the automaton.</p>
+        </div>
+      </div>
+      <div class="trace-box" id="trace-${d.task}"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">
+        <span>02</span>
+        <div>
+          <h3>Automaton / Grammar Diagram</h3>
+          <p>Visual representation of the model used for this validator.</p>
+        </div>
+      </div>
+      <div class="diagram-box">${diagramHtml(d.diagram, d.model)}</div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">
+        <span>03</span>
+        <div>
+          <h3>Step-by-Step Explanation</h3>
+          <p>Readable explanation of every important transition, stack action, or grammar rule.</p>
+        </div>
+      </div>
+      <div class="explanation-list" id="steps-${d.task}"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">
+        <span>04</span>
+        <div>
+          <h3>Formal Description</h3>
+          <p>Rule and purpose of the selected model.</p>
+        </div>
+      </div>
+      <div class="formal-description">${formalDescription(d.diagram)}</div>
+    </div>
+  `;
+
+  panel.appendChild(result);
+
+  const trace = panel.querySelector("#trace-" + d.task);
+  const states = d.states || [];
+  if (states.length) {
+    states.forEach((state, i) => {
+      const s = document.createElement("span");
+      s.className = "state";
+      s.textContent = state;
+      trace.appendChild(s);
+      if (i < states.length - 1) {
+        const arrow = document.createElement("span");
+        arrow.className = "arrow";
+        arrow.textContent = "→";
+        trace.appendChild(arrow);
+      }
+    });
+  } else if (d.diagram === "brackets" && d.stack) {
+    trace.innerHTML = `<span class="stack-final">Final Stack: [${d.stack.map(escapeHtml).join(", ")}]</span>`;
+  } else {
+    trace.innerHTML = `<span class="trace-note">Stack/parser trace is represented in the explanation steps below.</span>`;
+  }
+
+  const steps = panel.querySelector("#steps-" + d.task);
+  (d.steps || []).forEach((step, i) => {
+    const item = document.createElement("div");
+    item.className = "explanation-step";
+    item.innerHTML = `
+      <div class="step-number">${String(i + 1).padStart(2, "0")}</div>
+      <div class="step-body">
+        <h4>${escapeHtml(step.title)}</h4>
+        <p>${escapeHtml(step.detail)}</p>
+        <span class="transition">${escapeHtml(step.transition)}</span>
+      </div>
+    `;
+    steps.appendChild(item);
+  });
+
+  panel.classList.add("show");
+  panel.scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function renderError(task, message) {
+  const panel = document.getElementById("result-" + (["atm","password","email"].includes(task) ? "task2" : "task3"));
+  panel.innerHTML = `<div class="error-message large-error">${escapeHtml(message)}</div>`;
+  panel.classList.add("show");
+}
+
+function formalDescription(diagram) {
+  const descriptions = {
+    atm: "Language: L = { d1d2d3d4 | each di is a decimal digit }. The DFA accepts only strings of exactly four decimal digits. q0 is the start state and q4 is the accepting state.",
+    password: "Language: strings of exactly 8 characters where the first character is an uppercase English letter, positions 2–7 are alphanumeric, and the final character is a digit. q8 is the accepting state.",
+    email: "Simplified language: [A-Za-z0-9]+@[A-Za-z0-9]+\\.[a-z]{1,3}. This is an intentionally simplified educational e-mail DFA, not a complete real-world e-mail specification.",
+    brackets: "The DPDA-style validator uses a stack. Opening brackets are pushed; a closing bracket must match the current stack top and is then popped. Acceptance occurs when all input is consumed and only Z0 remains.",
+    expression: "CFG: E → E + T | T, T → T * F | F, F → (E) | id. The recursive-descent parser checks whether the input can be derived from this grammar.",
+    wcwr: "Language: L = { w c wᴿ | w is a string over the chosen alphabet }. The explicit center marker c tells the PDA exactly when to switch from pushing w to matching the reverse half.",
+    wwr: "Language: L = { w wᴿ | w ∈ {a,b}* }. Because the midpoint is not marked, an NPDA can nondeterministically guess the midpoint and then compare the second half with the reverse of the first."
+  };
+  return descriptions[diagram] || "";
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+  }[c]));
+}
+
+function circle(label, x, y, accept=false) {
+  return `
+    <circle cx="${x}" cy="${y}" r="31" class="node ${accept ? "accept-node" : ""}"/>
+    <text x="${x}" y="${y+5}" text-anchor="middle" class="node-text">${label}</text>
+  `;
+}
+
+function arrow(x1,y1,x2,y2,label,loop=false) {
+  if(loop) {
+    return `<path d="M ${x1} ${y1} C ${x1-55} ${y1-80}, ${x1+55} ${y1-80}, ${x1} ${y1-31}" class="edge" marker-end="url(#arrow)"/>
+            <text x="${x1}" y="${y1-66}" text-anchor="middle" class="edge-label">${label}</text>`;
+  }
+  const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy);
+  const ux=dx/len, uy=dy/len;
+  const sx=x1+ux*32, sy=y1+uy*32;
+  const ex=x2-ux*32, ey=y2-uy*32;
+  const mx=(sx+ex)/2, my=(sy+ey)/2-8;
+  return `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" class="edge" marker-end="url(#arrow)"/>
+          <text x="${mx}" y="${my}" text-anchor="middle" class="edge-label">${label}</text>`;
+}
+
+function diagramHtml(type, model) {
+  const defs = `<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>`;
+
+  if (type === "atm") {
+    let svg = `<svg viewBox="0 0 900 220" class="automata-svg">${defs}`;
+    svg += circle("q0",100,110)+circle("q1",270,110)+circle("q2",440,110)+circle("q3",610,110)+circle("q4",780,110,true);
+    svg += arrow(100,110,270,110,"digit");
+    svg += arrow(270,110,440,110,"digit");
+    svg += arrow(440,110,610,110,"digit");
+    svg += arrow(610,110,780,110,"digit");
+    svg += arrow(100,110,100,110,"invalid",true);
+    svg += `<text x="780" y="175" text-anchor="middle" class="accept-label">ACCEPT</text></svg>`;
+    return svg;
+  }
+
+  if (type === "password") {
+    let svg = `<svg viewBox="0 0 1000 250" class="automata-svg">${defs}`;
+    const xs=[70,185,300,415,530,645,760,875];
+    xs.forEach((x,i)=>svg+=circle("q"+i,x,125,i===7));
+    for(let i=0;i<7;i++) svg+=arrow(xs[i],125,xs[i+1],125,i===0?"uppercase":i===7?"digit":"alphanumeric");
+    svg += `<text x="70" y="70" class="edge-label">start</text><text x="875" y="195" text-anchor="middle" class="accept-label">ACCEPT</text></svg>`;
+    return svg;
+  }
+
+  if (type === "email") {
+    let svg = `<svg viewBox="0 0 900 230" class="automata-svg">${defs}`;
+    svg += circle("q0",90,115)+circle("q1",270,115)+circle("q2",450,115)+circle("q3",630,115)+circle("q4",810,115,true);
+    svg += arrow(90,115,270,115,"letter/digit");
+    svg += arrow(270,115,270,115,"letter/digit",true);
+    svg += arrow(270,115,450,115,"@");
+    svg += arrow(450,115,630,115,"letter/digit");
+    svg += arrow(630,115,630,115,"letter/digit",true);
+    svg += arrow(630,115,810,115,". + tld");
+    svg += `<text x="810" y="180" text-anchor="middle" class="accept-label">ACCEPT</text></svg>`;
+    return svg;
+  }
+
+  if (type === "brackets") {
+    return `<div class="stack-diagram">
+      <div class="stack-card"><span>Top</span><strong>Opening bracket</strong><small>Push onto stack</small></div>
+      <div class="stack-arrow">↓</div>
+      <div class="stack-card"><span>Input</span><strong>Closing bracket</strong><small>Compare with stack top</small></div>
+      <div class="stack-arrow">↓</div>
+      <div class="stack-card"><span>Match</span><strong>POP</strong><small>Remove matching opening bracket</small></div>
+      <div class="stack-arrow">↓</div>
+      <div class="stack-card accept-card"><span>Final</span><strong>Z0 only</strong><small>Accept if input is fully consumed</small></div>
+    </div>`;
+  }
+
+  if (type === "expression") {
+    return `<div class="grammar-diagram">
+      <div class="grammar-row"><span>E</span><b>→</b><span>E + T</span><span class="or">|</span><span>T</span></div>
+      <div class="grammar-row"><span>T</span><b>→</b><span>T * F</span><span class="or">|</span><span>F</span></div>
+      <div class="grammar-row"><span>F</span><b>→</b><span>(E)</span><span class="or">|</span><span>id</span></div>
+    </div>`;
+  }
+
+  if (type === "wcwr") {
+    return `<div class="pda-flow">
+      <div class="flow-box"><b>q0</b><span>Read w</span><small>Push symbols</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box center"><b>c</b><span>Center marker</span><small>Switch mode</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><b>q1</b><span>Read wᴿ</span><small>Pop & match</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accept-card"><b>Accept</b><span>Stack matched</span></div>
+    </div>`;
+  }
+
+  if (type === "wwr") {
+    return `<div class="pda-flow">
+      <div class="flow-box"><b>q0</b><span>Read first half</span><small>Push symbols</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box center"><b>Guess</b><span>Midpoint</span><small>NPDA choice</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><b>q1</b><span>Read second half</span><small>Pop & match</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box accept-card"><b>Accept</b><span>Reverse matched</span></div>
+    </div>`;
+  }
+
+  return `<div class="diagram-placeholder">${escapeHtml(model)}</div>`;
+}
+</script>
+</body>
+</html>
